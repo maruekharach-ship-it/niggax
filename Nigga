@@ -1,0 +1,512 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Teams = game:GetService("Teams")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ลบ UI เก่าหากมีอยู่แล้ว
+if CoreGui:FindFirstChild("ThaiCheatMenuV2") then
+    CoreGui.ThaiCheatMenuV2:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ThaiCheatMenuV2"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- ตัวแปรตั้งค่าฟังก์ชัน
+local Config = {
+    AimbotEnabled = false,
+    AutoLock = false,
+    AimPart = "Head", -- "Head", "Torso", "Legs"
+    FovSize = 100,
+    Smoothness = 5,
+    WallCheck = false,
+    TeamCheck = true,
+    LockNpc = true,
+    LockPlayer = true,
+    FovRainbow = false,
+    FovPosition = "Center", -- "Center" หรือ "FollowMouse"
+    SelectedTeams = {}, -- รายชื่อทีมที่เลือกให้ล็อก
+    
+    TpWalkEnabled = false,
+    TpWalkSpeed = 2,
+    
+    InfJumpEnabled = false,
+    JumpPowerEnabled = false,
+    JumpPowerVal = 50,
+    
+    NoclipEnabled = false,
+    
+    EspEnabled = false,
+    EspColorMode = "Red", -- "Red", "TeamColor", "Rainbow"
+    EspMode = "Box", -- "Box" หรือ "Full"
+    ShowNames = true,
+}
+
+-- สร้าง Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 540, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -270, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- สามารถลากเคลื่อนย้ายได้
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- แถบหัวข้อ (Top Bar)
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.Parent = TopBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -110, 1, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Text = "เมนูช่วยเหลือเล่นเกม (ภาษาไทย)"
+TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+TitleLabel.TextSize = 18
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+
+-- ปุ่ม ซ่อน/เปิด หน้าต่าง UI หลัก
+local ToggleMenuButton = Instance.new("TextButton")
+ToggleMenuButton.Size = UDim2.new(0, 85, 0, 26)
+ToggleMenuButton.Position = UDim2.new(1, -95, 0, 7)
+ToggleMenuButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- เริ่มต้นสีแดง (ซ่อน)
+ToggleMenuButton.Font = Enum.Font.SourceSansBold
+ToggleMenuButton.Text = "ซ่อนเมนู"
+ToggleMenuButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleMenuButton.TextSize = 14
+ToggleMenuButton.Parent = TopBar
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 6)
+ToggleCorner.Parent = ToggleMenuButton
+
+-- แถบหมวดหมู่ (Tabs Header)
+local TabHeader = Instance.new("Frame")
+TabHeader.Size = UDim2.new(1, -20, 0, 35)
+TabHeader.Position = UDim2.new(0, 10, 0, 45)
+TabHeader.BackgroundTransparency = 1
+TabHeader.Parent = MainFrame
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.Parent = TabHeader
+
+-- พื้นที่แสดงเนื้อหาของแต่ละหมวดหมู่
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, -20, 1, -95)
+TabContainer.Position = UDim2.new(0, 10, 0, 85)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local Tabs = {}
+local currentTab = nil
+
+local function createTab(tabName)
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Size = UDim2.new(0, 120, 1, 0)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    tabBtn.Font = Enum.Font.SourceSansBold
+    tabBtn.Text = tabName
+    tabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    tabBtn.TextSize = 15
+    tabBtn.Parent = TabHeader
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = tabBtn
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+    scrollFrame.ScrollBarThickness = 6
+    scrollFrame.Visible = false
+    scrollFrame.Parent = TabContainer
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 8)
+    listLayout.Parent = scrollFrame
+    
+    tabBtn.MouseButton1Click:Connect(function()
+        for _, tabData in pairs(Tabs) do
+            tabData.Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+            tabData.Button.TextColor3 = Color3.fromRGB(200, 200, 200)
+            tabData.Frame.Visible = false
+        end
+        tabBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        scrollFrame.Visible = true
+    end)
+    
+    Tabs[tabName] = {Button = tabBtn, Frame = scrollFrame}
+    if not currentTab then
+        currentTab = tabName
+        tabBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        scrollFrame.Visible = true
+    end
+    return scrollFrame
+end
+
+-- สร้างหมวดหมู่หลัก
+local TabAim = createTab("ระบบล็อกเป้า (Aim)")
+local TabMovement = createTab("การเคลื่อนที่")
+local TabEsp = createTab("การมองเห็น (ESP)")
+
+-- [ฟังก์ชันสร้างปุ่มเปิด/ปิด: สีเขียว (เปิด) / สีแดง (ปิด)]
+local function createToggle(parent, name, defaultState, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 38)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSans
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 80, 0, 26)
+    btn.Position = UDim2.new(1, -92, 0.5, -13)
+    btn.BackgroundColor3 = defaultState and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(200, 40, 40)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = defaultState and "เปิด" or "ปิด"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.Parent = frame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+    
+    local state = defaultState
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(200, 40, 40)
+        btn.Text = state and "เปิด" or "ปิด"
+        callback(state)
+    end)
+    frame.Parent = parent
+end
+
+-- [ฟังก์ชันสร้างปุ่มหลายตัวเลือก/หมุนวน: สีขาว ตัวอักษรสีดำ]
+local function createMultiOption(parent, name, options, defaultIndex, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 38)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.55, 0, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSans
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 120, 0, 26)
+    btn.Position = UDim2.new(1, -132, 0.5, -13)
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- ปุ่มหลายตัวเลือกเป็นสีขาว
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = options[defaultIndex].Text
+    btn.TextColor3 = Color3.fromRGB(20, 20, 20) -- ข้อความสีดำเพื่อความสบายตา
+    btn.TextSize = 14
+    btn.Parent = frame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+    
+    local currentIndex = defaultIndex
+    btn.MouseButton1Click:Connect(function()
+        currentIndex = currentIndex + 1
+        if currentIndex > #options then currentIndex = 1 end
+        btn.Text = options[currentIndex].Text
+        callback(options[currentIndex].Value)
+    end)
+    frame.Parent = parent
+end
+
+-- [ฟังก์ชันสร้างช่องใส่ตัวเลข]
+local function createInput(parent, name, defaultVal, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 38)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSans
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0, 80, 0, 26)
+    textBox.Position = UDim2.new(1, -92, 0.5, -13)
+    textBox.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    textBox.Font = Enum.Font.SourceSansBold
+    textBox.Text = tostring(defaultVal)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.TextSize = 14
+    textBox.Parent = frame
+    
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 6)
+    boxCorner.Parent = textBox
+    
+    textBox.FocusLost:Connect(function()
+        local num = tonumber(textBox.Text)
+        if num then callback(num) else textBox.Text = tostring(defaultVal) end
+    end)
+    frame.Parent = parent
+end
+
+-- ========================================================
+-- 1. หมวดหมู่: Aimbot
+-- ========================================================
+createToggle(TabAim, "ระบบ Aimbot (เปิด/ปิด)", Config.AimbotEnabled, function(v) Config.AimbotEnabled = v end)
+createToggle(TabAim, "ปุ่มเปิด Auto Lock (ล็อกอัตโนมัติ)", Config.AutoLock, function(v) Config.AutoLock = v end)
+
+createMultiOption(TabAim, "เลือกล็อกตำแหน่งร่างกาย", {
+    {Text = "ล็อกหัว", Value = "Head"},
+    {Text = "ล็อกตัว", Value = "Torso"},
+    {Text = "ล็อกขา", Value = "LeftLeg"}
+}, 1, function(v) Config.AimPart = v end)
+
+createInput(TabAim, "ขนาดวง FOV (ใส่ตัวเลข)", Config.FovSize, function(v) Config.FovSize = v end)
+createInput(TabAim, "ความ Smooth (ความเนียน)", Config.Smoothness, function(v) Config.Smoothness = v end)
+
+createMultiOption(TabAim, "ตำแหน่งวง FOV", {
+    {Text = "อยู่กลางหน้าจอ", Value = "Center"},
+    {Text = "ตามนิ้ว/เมาส์", Value = "FollowMouse"}
+}, 1, function(v) Config.FovPosition = v end)
+
+createToggle(TabAim, "วง FOV สีรุ้ง", Config.FovRainbow, function(v) Config.FovRainbow = v end)
+createToggle(TabAim, "Wall Check (เช็คกำแพงบัง)", Config.WallCheck, function(v) Config.WallCheck = v end)
+createToggle(TabAim, "Team Check (เช็คทีมเดียวกัน)", Config.TeamCheck, function(v) Config.TeamCheck = v end)
+createToggle(TabAim, "ล็อก NPC", Config.LockNpc, function(v) Config.LockNpc = v end)
+createToggle(TabAim, "ล็อก ผู้เล่น", Config.LockPlayer, function(v) Config.LockPlayer = v end)
+
+-- ปุ่มเลือกฝั่ง/ทีมที่จะล็อก (เลือกได้หลายฝั่ง)
+local teamHeader = Instance.new("TextLabel")
+teamHeader.Size = UDim2.new(1, 0, 0, 25)
+teamHeader.BackgroundTransparency = 1
+teamHeader.Font = Enum.Font.SourceSansBold
+teamHeader.Text = "--- เลือกฝั่ง/ทีมที่จะให้ล็อก (กดเปิดหลายทีมได้) ---"
+teamHeader.TextColor3 = Color3.fromRGB(180, 180, 200)
+teamHeader.TextSize = 14
+teamHeader.Parent = TabAim
+
+for _, team in ipairs(Teams:GetTeams()) do
+    createToggle(TabAim, "ล็อกทีม: " .. team.Name, false, function(v)
+        Config.SelectedTeams[team.Name] = v
+    end)
+end
+
+-- ========================================================
+-- 2. หมวดหมู่: Movement
+-- ========================================================
+createToggle(TabMovement, "TPWalk (เคลื่อนที่เร็ว/วาร์ป)", Config.TpWalkEnabled, function(v) Config.TpWalkEnabled = v end)
+createInput(TabMovement, "ปรับความเร็ว TPWalk (ใส่นิดเดียวก็เร็ว)", Config.TpWalkSpeed, function(v) Config.TpWalkSpeed = v end)
+
+createToggle(TabMovement, "กระโดดไม่จำกัด (Infinite Jump)", Config.InfJumpEnabled, function(v) Config.InfJumpEnabled = v end)
+createToggle(TabMovement, "ปุ่มเปิด/ปิด กระโดดสูง (Jump Power)", Config.JumpPowerEnabled, function(v) Config.JumpPowerEnabled = v end)
+createInput(TabMovement, "ระดับความสูงกระโดด (Jump Power)", Config.JumpPowerVal, function(v) Config.JumpPowerVal = v end)
+
+createToggle(TabMovement, "ทะลุกำแพง (Noclip)", Config.NoclipEnabled, function(v) Config.NoclipEnabled = v end)
+
+-- ========================================================
+-- 3. หมวดหมู่: ESP
+-- ========================================================
+createToggle(TabEsp, "ระบบมองทะลุ (ESP)", Config.EspEnabled, function(v) Config.EspEnabled = v end)
+
+createMultiOption(TabEsp, "โหมดสี ESP", {
+    {Text = "สีแดงปกติ", Value = "Red"},
+    {Text = "สีตามฝั่ง/ทีม", Value = "TeamColor"},
+    {Text = "สีรุ้ง", Value = "Rainbow"}
+}, 1, function(v) Config.EspColorMode = v end)
+
+createMultiOption(TabEsp, "รูปแบบการเห็น", {
+    {Text = "บล็อกสี่เหลี่ยม (Box)", Value = "Box"},
+    {Text = "เห็นทั้งตัว (Full Body)", Value = "Full"}
+}, 1, function(v) Config.EspMode = v end)
+
+createToggle(TabEsp, "แสดงชื่อผู้เล่น (Name Tags)", Config.ShowNames, function(v) Config.ShowNames = v end)
+
+-- ========================================================
+-- ระบบทำงานเบื้องหลัง (Game Loop)
+-- ========================================================
+
+-- สร้างวงกลม FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Thickness = 2
+FOVCircle.NumSides = 60
+FOVCircle.Filled = false
+
+-- สลับการแสดงผลเมนูหลัก
+local menuVisible = true
+ToggleMenuButton.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    MainFrame.Visible = menuVisible
+    ToggleMenuButton.Text = menuVisible and "ซ่อนเมนู" or "แสดงเมนู"
+    ToggleMenuButton.BackgroundColor3 = menuVisible and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(0, 180, 80)
+end)
+
+-- RenderStepped Main Loop
+RunService.RenderStepped:Connect(function()
+    -- อัปเดต FOV Circle
+    FOVCircle.Visible = Config.AimbotEnabled
+    FOVCircle.Radius = Config.FovSize
+    
+    if Config.FovPosition == "FollowMouse" then
+        FOVCircle.Position = UserInputService:GetMouseLocation()
+    else
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    end
+    
+    if Config.FovRainbow then
+        FOVCircle.Color = Color3.fromHSV(tick() % 4 / 4, 1, 1)
+    else
+        FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+    end
+    
+    -- Aimbot Logic
+    if Config.AimbotEnabled and (Config.AutoLock or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
+        local closestTarget = nil
+        local shortestDist = Config.FovSize
+        local centerPos = (Config.FovPosition == "FollowMouse") and UserInputService:GetMouseLocation() or Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        
+        for _, target in ipairs(workspace:GetChildren()) do
+            local isPlayer = Players:GetPlayerFromCharacter(target)
+            local isNpc = target:FindFirstChildOfClass("Humanoid") and not isPlayer
+            
+            local canLock = false
+            if isPlayer and Config.LockPlayer then
+                local plr = Players:GetPlayerFromCharacter(target)
+                if plr ~= LocalPlayer then
+                    -- เช็คระบบเลือกฝั่ง
+                    if next(Config.SelectedTeams) ~= nil then
+                        if plr.Team and Config.SelectedTeams[plr.Team.Name] then canLock = true end
+                    else
+                        if not Config.TeamCheck or plr.Team ~= LocalPlayer.Team then canLock = true end
+                    end
+                end
+            elseif isNpc and Config.LockNpc then
+                canLock = true
+            end
+            
+            if canLock and target:FindFirstChild(Config.AimPart) then
+                local part = target[Config.AimPart]
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - centerPos).Magnitude
+                    if dist < shortestDist then
+                        -- Wallcheck
+                        local allowed = true
+                        if Config.WallCheck then
+                            local ray = Ray.new(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 500)
+                            local hit = workspace:FindPartOnWithIgnoreList(ray, {LocalPlayer.Character, target})
+                            if hit and hit:IsA("BasePart") then allowed = false end
+                        end
+                        if allowed then
+                            shortestDist = dist
+                            closestTarget = part
+                        end
+                    end
+                end
+            end
+        end
+        
+        if closestTarget then
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, closestTarget.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / math.max(1, Config.Smoothness))
+        end
+    end
+    
+    -- TPWalk Logic
+    if Config.TpWalkEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum and hum.MoveDirection.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * Config.TpWalkSpeed)
+        end
+    end
+    
+    -- Jump Power Logic
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.UseJumpPower = true
+            if Config.JumpPowerEnabled then
+                hum.JumpPower = Config.JumpPowerVal
+            else
+                hum.JumpPower = 50 -- ค่าเริ่มต้น Roblox
+            end
+        end
+    end
+    
+    -- Noclip Logic
+    if Config.NoclipEnabled and LocalPlayer.Character then
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Infinite Jump Event
+UserInputService.JumpRequest:Connect(function()
+    if Config.InfJumpEnabled and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+
+print("โหลดสคริปต์เรียบร้อยแล้ว!")
